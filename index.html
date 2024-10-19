@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>留白搜索</title>
+    <style>
+        body {
+            background-image: url('https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1974&q=80');
+            background-size: cover;
+            background-attachment: fixed;
+            background-position: center;
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            color: #333;
+        }
+        
+        /* 添加一个半透明的覆盖层以提高文字可读性 */
+        body::before {
+            content: "";
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(255, 255, 255, 0.7);
+            z-index: -1;
+        }
+
+        #search-container {
+            text-align: center;
+            margin: 40px 0;
+        }
+        #search-input {
+            padding: 10px;
+            width: 300px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        #search-button {
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        #search-button:hover {
+            background-color: #45a049;
+        }
+        /* 添加新闻列表样式 */
+        #news-container {
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 20px;
+            background-color: rgba(255, 255, 255, 0.8);
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        .news-item {
+            margin-bottom: 15px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #ddd;
+        }
+        .news-item:last-child {
+            border-bottom: none;
+        }
+        .news-item h3 {
+            margin: 0 0 5px 0;
+            color: #2c3e50;
+        }
+        .news-item p {
+            margin: 0;
+            color: #34495e;
+        }
+
+        /* 修改网站标题样式 */
+        #site-title {
+            text-align: center;
+            font-size: 3.5em;
+            color: #333;
+            margin-top: 60px;
+            margin-bottom: 40px;
+            font-family: 'Microsoft YaHei', '微软雅黑', Arial, sans-serif;
+            letter-spacing: 5px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+            position: relative;
+            display: inline-block;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        #site-title::after {
+            content: '';
+            display: block;
+            width: 60px;
+            height: 3px;
+            background-color: #4CAF50;
+            position: absolute;
+            bottom: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        .news-item h3 a {
+            color: #2c3e50;
+            text-decoration: none;
+            transition: color 0.3s ease;
+        }
+
+        .news-item h3 a:hover {
+            color: #3498db;
+        }
+
+        .loading {
+            text-align: center;
+            font-size: 1.2em;
+            margin-top: 20px;
+        }
+
+        #refresh-news {
+            padding: 5px 10px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-left: 10px;
+        }
+
+        #refresh-news:hover {
+            background-color: #2980b9;
+        }
+
+        .news-tag {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.8em;
+            font-weight: bold;
+            color: white;
+            margin-right: 10px;
+        }
+
+        .tag-topnews { background-color: #e74c3c; }
+        .tag-finance { background-color: #2ecc71; }
+        .tag-generalnews { background-color: #3498db; }
+        .tag-esports { background-color: #9b59b6; }
+        .tag-areanews { background-color: #f39c12; }
+
+        #load-more {
+            display: block;
+            margin: 20px auto;
+            padding: 10px 20px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        #load-more:hover {
+            background-color: #2980b9;
+        }
+
+        #load-more:disabled {
+            background-color: #bdc3c7;
+            cursor: not-allowed;
+        }
+
+        #local-search-button {
+            padding: 10px 20px;
+            background-color: #f39c12;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-left: 10px;
+        }
+
+        #local-search-button:hover {
+            background-color: #e67e22;
+        }
+
+        .highlight {
+            background-color: yellow;
+            font-weight: bold;
+        }
+
+        .loader-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100px;
+        }
+
+        .loader {
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid #3498db;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* 响应式设计 */
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+
+            #site-title {
+                font-size: 2.5em;
+                margin-top: 30px;
+                margin-bottom: 20px;
+            }
+
+            #search-container {
+                margin: 20px 0;
+            }
+
+            #search-input {
+                width: calc(100% - 22px);
+                margin-bottom: 10px;
+            }
+
+            #search-button,
+            #local-search-button {
+                width: 100%;
+                margin-left: 0;
+                margin-bottom: 10px;
+            }
+
+            #news-container {
+                padding: 10px;
+            }
+
+            .news-item h3 {
+                font-size: 1.2em;
+            }
+
+            .news-item p {
+                font-size: 0.9em;
+            }
+
+            .news-tag {
+                font-size: 0.7em;
+                padding: 1px 6px;
+            }
+
+            #load-more {
+                width: 100%;
+            }
+        }
+
+        /* 为小屏幕设备优化背景图片 */
+        @media (max-width: 768px) {
+            body {
+                background-attachment: scroll;
+            }
+        }
+
+        /* 移动导航样式 */
+        #mobile-nav {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background-color: rgba(52, 152, 219, 0.9);
+            padding: 10px;
+            z-index: 1000;
+        }
+
+        #menu-toggle {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 1.5em;
+            cursor: pointer;
+        }
+
+        #menu-items a {
+            display: block;
+            color: white;
+            text-decoration: none;
+            padding: 10px 0;
+        }
+
+        @media (max-width: 768px) {
+            #mobile-nav {
+                display: block;
+            }
+
+            body {
+                padding-top: 50px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- 添加网站标 -->
+    <h1 id="site-title">留白搜索</h1>
+
+    <!-- 搜索框 -->
+    <div id="search-container">
+        <input type="text" id="search-input" placeholder="输入搜索关键词">
+        <button id="search-button">必应搜索</button>
+        <button id="local-search-button">本地搜索</button>
+    </div>
+    
+    <!-- 新闻容器 -->
+    <div id="news-container">
+        <h2>最新新闻 <button id="refresh-news">刷新</button></h2>
+        <div id="news-list"></div>
+        <button id="load-more">加载更多</button>
+    </div>
+    
+    <!-- 在其他脚本之加载配置文件 -->
+    <script src="config.js"></script>
+    
+    <!-- JavaScript -->
+    <script>
+        const searchInput = document.getElementById('search-input');
+        const searchButton = document.getElementById('search-button');
+        const newsList = document.getElementById('news-list');
+
+        searchButton.addEventListener('click', performSearch);
+
+        function performSearch() {
+            const query = searchInput.value.trim();
+            if (query) {
+                const bingUrl = `https://www.bing.com/search?q=${encodeURIComponent(query)}`;
+                window.location.href = bingUrl;
+            }
+        }
+
+        // 全局变量
+        let newsCache = {};
+        const apis = [
+            { name: '头条热门新闻', endpoint: 'topnews' },
+            { name: '财经新闻', endpoint: 'finance' },
+            { name: '综合新闻', endpoint: 'generalnews' },
+            { name: '电竞资讯', endpoint: 'esports' },
+            { name: '地区新闻', endpoint: 'areanews' }
+        ];
+
+        let currentPage = 1;
+        let allNews = [];
+        let allLoadedNews = [];
+
+        async function fetchNews(page = 1) {
+            console.log('Fetching news...');
+            if (page === 1) {
+                newsList.innerHTML = '';
+                newsCache = {};
+                allNews = [];
+                allLoadedNews = [];
+            }
+            showLoader();
+
+            try {
+                const results = await Promise.allSettled(apis.map(api => fetchNewsFromAPI(api, page)));
+                const newNews = results
+                    .filter(result => result.status === 'fulfilled')
+                    .flatMap(result => result.value);
+                
+                if (newNews.length === 0) {
+                    throw new Error('无法获取任何新闻');
+                }
+
+                allNews = allNews.concat(newNews);
+                allLoadedNews = allLoadedNews.concat(newNews);
+                const filteredNews = filterAndShuffleNews(allNews);
+                hideLoader(); // 确保在这里调用 hideLoader
+                displayNews(filteredNews, page === 1);
+                currentPage = page;
+                document.getElementById('load-more').disabled = false;
+            } catch (error) {
+                console.error('Error fetching news:', error);
+                hideLoader(); // 在错误情况下也要隐藏加载动画
+                if (page === 1) {
+                    newsList.innerHTML = '<p>获取新闻时发生错误，请稍后再试</p>';
+                } else {
+                    newsList.innerHTML += '<p>加载更多新闻时发生错误，请稍后再试</p>';
+                }
+                document.getElementById('load-more').disabled = true;
+            }
+        }
+
+        async function fetchNewsFromAPI(api, page) {
+            const timestamp = new Date().getTime();
+            const random = Math.random();
+            const num = 10; // 每页固定获取10条��闻
+            const url = `http://api.tianapi.com/${api.endpoint}/index?key=${CONFIG.API_KEY}&num=${num}&page=${page}&timestamp=${timestamp}&random=${random}`;
+            
+            try {
+                const response = await fetch(url);
+                const data = await response.json();
+                if (data.code === 200) {
+                    return data.newslist.map(item => ({...item, apiName: api.name}));
+                } else {
+                    console.error(`获取${api.name}失败:`, data.msg);
+                    return [];
+                }
+            } catch (error) {
+                console.error(`Error fetching ${api.name}:`, error);
+                return [];
+            }
+        }
+
+        function filterAndShuffleNews(articles) {
+            // 随机打乱所有文章的顺序
+            for (let i = articles.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [articles[i], articles[j]] = [articles[j], articles[i]];
+            }
+
+            // 选择前10篇文章，确保每个API至少有一篇文章（如果可能）
+            const selectedArticles = [];
+            const apiCounts = {};
+
+            for (const article of articles) {
+                if (selectedArticles.length >= 10) break;
+                
+                if (!apiCounts[article.apiName]) {
+                    apiCounts[article.apiName] = 0;
+                }
+
+                if (apiCounts[article.apiName] < 2) {
+                    selectedArticles.push(article);
+                    apiCounts[article.apiName]++;
+                } else if (Math.random() < 0.3) { // 30%的概率添加额外的文章
+                    selectedArticles.push(article);
+                }
+            }
+
+            return selectedArticles;
+        }
+
+        function displayNews(articles, clearExisting = true) {
+            console.log('Displaying news:', articles);
+            if (clearExisting) {
+                newsList.innerHTML = '';
+            }
+
+            if (articles.length === 0) {
+                newsList.innerHTML += '<p>暂无更多新闻</p>';
+                document.getElementById('load-more').style.display = 'none';
+                return;
+            }
+
+            const timestamp = new Date().toLocaleString();
+            if (clearExisting) {
+                const timestampElement = document.createElement('p');
+                timestampElement.textContent = `更新时间：${timestamp}`;
+                newsList.appendChild(timestampElement);
+            }
+
+            articles.forEach(article => {
+                const newsItem = document.createElement('div');
+                newsItem.className = 'news-item';
+                
+                const tagClass = getTagClass(article.apiName);
+                const tagHtml = `<span class="news-tag ${tagClass}">${article.apiName}</span>`;
+                
+                newsItem.innerHTML = `
+                    ${tagHtml}
+                    <h3><a href="${fixUrl(article.url)}" target="_blank" onclick="return handleLinkClick(event, this.href)">${article.title || '无标题'}</a></h3>
+                    <p>${article.description || '暂无描述'}</p>
+                    <p>来源: ${article.source || '未知'}</p>
+                `;
+                newsList.appendChild(newsItem);
+            });
+
+            document.getElementById('load-more').style.display = 'block';
+        }
+
+        // 添加这个新函数来获取标签的 CSS 类
+        function getTagClass(apiName) {
+            switch (apiName) {
+                case '头条热门新闻': return 'tag-topnews';
+                case '财经新闻': return 'tag-finance';
+                case '综合新闻': return 'tag-generalnews';
+                case '电竞资讯': return 'tag-esports';
+                case '地区新闻': return 'tag-areanews';
+                default: return '';
+            }
+        }
+
+        function fixUrl(url) {
+            if (!url) return '#';
+            if (!url.startsWith('http://') && !url.startsWith('https://')) {
+                return 'https://' + url;
+            }
+            return url;
+        }
+
+        function handleLinkClick(event, url) {
+            if (!url || url === '#') {
+                event.preventDefault();
+                alert('抱歉，该新闻链接不可用。');
+                return false;
+            }
+            // 如果链接有效，让浏览器正常打开链接
+            return true;
+        }
+
+        // 页面加载时获取并显示新闻
+        window.onload = function() {
+            console.log('Window loaded');
+            console.log('API Key:', CONFIG.API_KEY);
+            fetchNews(1);
+            changeBackgroundImage();
+        };
+
+        // 添加背景图片轮换功能
+        const backgroundImages = [
+            'https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1974&q=80',
+            'https://images.unsplash.com/photo-1501854140801-50d01698950b?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1975&q=80',
+            'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2071&q=80'
+        ];
+
+        function changeBackgroundImage() {
+            const randomIndex = Math.floor(Math.random() * backgroundImages.length);
+            document.body.style.backgroundImage = `url('${backgroundImages[randomIndex]}')`;
+        }
+
+        // 页面加载时更换背景图片
+        // window.addEventListener('load', changeBackgroundImage);
+
+        // 每隔一定时间（比如30秒）更换次背片
+        setInterval(changeBackgroundImage, 30000);
+
+        // 添加加载更多按钮的事件监听器
+        document.getElementById('load-more').addEventListener('click', () => {
+            document.getElementById('load-more').disabled = true;
+            showLoader();
+            fetchNews(currentPage + 1);
+        });
+
+        // 修改刷新按钮的事件监听器
+        const refreshButton = document.getElementById('refresh-news');
+        refreshButton.addEventListener('click', () => fetchNews(1));
+
+        // 添加本地搜索函数
+        function performLocalSearch() {
+            const query = searchInput.value.trim().toLowerCase();
+            if (query) {
+                const searchResults = allLoadedNews.filter(article => 
+                    article.title.toLowerCase().includes(query) || 
+                    article.description.toLowerCase().includes(query)
+                );
+                displayNews(searchResults, true);
+                highlightSearchTerms(query);
+            } else {
+                alert('请输入搜索关键词');
+            }
+        }
+
+        // 添加高亮搜索词函数
+        function highlightSearchTerms(query) {
+            const newsItems = document.querySelectorAll('.news-item');
+            newsItems.forEach(item => {
+                const title = item.querySelector('h3 a');
+                const description = item.querySelector('p');
+                
+                title.innerHTML = highlightText(title.textContent, query);
+                description.innerHTML = highlightText(description.textContent, query);
+            });
+        }
+
+        function highlightText(text, query) {
+            const regex = new RegExp(`(${query})`, 'gi');
+            return text.replace(regex, '<span class="highlight">$1</span>');
+        }
+
+        // 添加事件监听器
+        const localSearchButton = document.getElementById('local-search-button');
+        localSearchButton.addEventListener('click', performLocalSearch);
+
+        // 修改现有的搜索按钮事件监听器
+        searchButton.addEventListener('click', () => {
+            const query = searchInput.value.trim();
+            if (query) {
+                const bingUrl = `https://www.bing.com/search?q=${encodeURIComponent(query)}`;
+                window.open(bingUrl, '_blank');
+            } else {
+                alert('请输入搜索关键词');
+            }
+        });
+
+        function showLoader() {
+            let loaderContainer = newsList.querySelector('.loader-container');
+            if (!loaderContainer) {
+                loaderContainer = document.createElement('div');
+                loaderContainer.className = 'loader-container';
+                loaderContainer.innerHTML = '<div class="loader"></div>';
+                newsList.appendChild(loaderContainer);
+            }
+            loaderContainer.style.display = 'flex';
+        }
+
+        function hideLoader() {
+            const loaderContainer = newsList.querySelector('.loader-container');
+            if (loaderContainer) {
+                loaderContainer.style.display = 'none';
+            }
+        }
+
+        // 在 script 标签的末尾添加以下代码
+        const menuToggle = document.getElementById('menu-toggle');
+        const menuItems = document.getElementById('menu-items');
+        const navSearch = document.getElementById('nav-search');
+        const navNews = document.getElementById('nav-news');
+
+        menuToggle.addEventListener('click', () => {
+            menuItems.style.display = menuItems.style.display === 'none' ? 'block' : 'none';
+        });
+
+        navSearch.addEventListener('click', (e) => {
+            e.preventDefault();
+            menuItems.style.display = 'none';
+            document.getElementById('search-container').scrollIntoView({ behavior: 'smooth' });
+        });
+
+        navNews.addEventListener('click', (e) => {
+            e.preventDefault();
+            menuItems.style.display = 'none';
+            document.getElementById('news-container').scrollIntoView({ behavior: 'smooth' });
+        });
+    </script>
+    <script>
+    console.log('Config loaded:', CONFIG);
+    </script>
+</body>
+</html>
